@@ -5,11 +5,11 @@
     "Description": "Adds coal ore world generation to all biomes. Coal ore can be used as fuel with 8x the burn time of charcoal!",
     "Authors": [
         {
-            "Name": "Jordansbored",
-            "Url": "https://www.curseforge.com/members/jordansbored/projects"
+            "Name": "Meowerz",
+            "Url": "https://www.curseforge.com/members/meowerz/projects"
         }
     ],
-    "Website": "https://www.curseforge.com/members/jordansbored/projects",
+    "Website": "https://www.curseforge.com/members/meowerz/projects",
     "ServerVersion": "*",
     "Dependencies": {
         
