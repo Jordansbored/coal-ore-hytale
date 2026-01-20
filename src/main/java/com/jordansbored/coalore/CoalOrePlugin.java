@@ -26,42 +26,29 @@ import com.hypixel.hytale.math.util.ChunkUtil;
 import javax.annotation.Nonnull;
 import java.util.Random;
 
-/**
- * Coal Ore Plugin - Spawns coal ore veins naturally during world generation
- * 
- * Natural Generation:
- * - Automatically generates coal ore veins when new chunks are created
- * - Ore spawns between Y=10 and Y=80, with higher density at lower levels
- * - Replaces stone-like blocks only
- * 
- * Commands (Creative mode):
- * - /coalore spawn [size] - Spawns a coal ore vein at your location
- * - /coalore generate [radius] [count] - Generates multiple veins in an area
- * - /coalore fill [radius] - Fills underground areas with coal ore veins
- */
 public class CoalOrePlugin extends JavaPlugin {
 
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
     
-    // Coal ore block ID - defined in our pack as Ore_Coal_Stone
     private static final String COAL_ORE_BLOCK = "Ore_Coal_Stone";
-    private static final String STONE_BLOCK = "Rock_Stone";
     
-    // Generation settings
     private static final int MIN_Y = 10;
-    private static final int MAX_Y = 60;
-    private static final int VEINS_PER_CHUNK = 2;  // Average veins per chunk (rare)
-    private static final int MIN_VEIN_SIZE = 3;
-    private static final int MAX_VEIN_SIZE = 7;
-    private static final double SPAWN_CHANCE = 0.6; // 60% chance per chunk to spawn any veins
+    private static final int MAX_Y = 80;
+    private static final double GRID_SCALE = 22.0;
+    private static final double JITTER = 0.5;
+    private static final int RANGE_X = 2;
+    private static final int RANGE_Y = 2;
+    private static final int RANGE_Z = 2;
+    private static final int RESULT_CAP = 1;
+    private static final double SPAWN_WEIGHT = 80.0;
+    private static final double MAX_WEIGHT = 100.0;
+    private static final long SEED = 12345L;
     
     private final Random random = new Random();
+    private JitteredOreGenerator oreGenerator;
     
-    // Cached block IDs for performance (initialized on first use)
     private int coalOreId = Integer.MIN_VALUE;
     private BlockType coalOreType = null;
-    private int stoneId = Integer.MIN_VALUE;
-    private int[] replaceableBlockIds = null;
 
     public CoalOrePlugin(@Nonnull JavaPluginInit init) {
         super(init);
@@ -72,28 +59,27 @@ public class CoalOrePlugin extends JavaPlugin {
     protected void setup() {
         LOGGER.atInfo().log("Setting up Coal Ore plugin...");
         
-        // Register chunk generation event for natural ore spawning
-        // Use LATE priority so terrain is fully generated before we add ores
+        this.oreGenerator = new JitteredOreGenerator(
+            MIN_Y, MAX_Y, GRID_SCALE, JITTER,
+            RANGE_X, RANGE_Y, RANGE_Z, RESULT_CAP,
+            SPAWN_WEIGHT, MAX_WEIGHT, SEED
+        );
+        
         this.getEventRegistry().registerGlobal(
             EventPriority.LATE, 
             ChunkPreLoadProcessEvent.class, 
             this::onChunkGenerated
         );
         
-        // Register commands for manual ore spawning
         this.getCommandRegistry().registerCommand(new CoalOreCommand());
         
         LOGGER.atInfo().log("Coal Ore plugin setup complete!");
-        LOGGER.atInfo().log("  - Natural generation: ENABLED (Y=" + MIN_Y + " to Y=" + MAX_Y + ", ~" + VEINS_PER_CHUNK + " veins/chunk)");
+        LOGGER.atInfo().log("  - Natural generation: ENABLED (Y=" + MIN_Y + " to Y=" + MAX_Y + ")");
+        LOGGER.atInfo().log("  - Grid scale: " + GRID_SCALE + ", Jitter: " + JITTER);
         LOGGER.atInfo().log("  - Commands: /coalore spawn|generate|fill");
     }
     
-    /**
-     * Called when a chunk is about to be loaded. If it's newly generated,
-     * we add coal ore veins to it.
-     */
     private void onChunkGenerated(@Nonnull ChunkPreLoadProcessEvent event) {
-        // Only process newly generated chunks, not chunks loaded from disk
         if (!event.isNewlyGenerated()) {
             return;
         }
@@ -103,62 +89,17 @@ public class CoalOrePlugin extends JavaPlugin {
             return;
         }
         
-        // Initialize block IDs on first use
-        if (!initializeBlockIds()) {
-            return;
-        }
+        int placed = oreGenerator.generateOre(chunk);
         
-        // Get chunk coordinates (block coordinates of chunk corner)
-        int chunkX = chunk.getX() << 5;  // Multiply by 32 (chunk size)
-        int chunkZ = chunk.getZ() << 5;
-        
-        // Create a seeded random for this chunk so generation is deterministic
-        long chunkSeed = ((long) chunk.getX() * 341873128712L) + ((long) chunk.getZ() * 132897987541L);
-        Random chunkRandom = new Random(chunkSeed);
-        
-        // Chance for this chunk to have any coal ore at all
-        if (chunkRandom.nextDouble() > SPAWN_CHANCE) {
-            return; // No coal ore in this chunk
-        }
-        
-        int totalPlaced = 0;
-        int veinsCreated = 0;
-        
-        // Generate veins in this chunk (1-3 veins when spawning)
-        int numVeins = VEINS_PER_CHUNK + chunkRandom.nextInt(2); // 2-3 veins
-        
-        for (int i = 0; i < numVeins; i++) {
-            // Random position within chunk
-            int x = chunkX + chunkRandom.nextInt(32);
-            int z = chunkZ + chunkRandom.nextInt(32);
-            
-            // Y level with bias toward lower depths (coal is more common deeper)
-            // Use triangular distribution favoring lower Y values
-            int y = MIN_Y + (int) (Math.pow(chunkRandom.nextDouble(), 1.5) * (MAX_Y - MIN_Y));
-            
-            // Random vein size
-            int size = MIN_VEIN_SIZE + chunkRandom.nextInt(MAX_VEIN_SIZE - MIN_VEIN_SIZE + 1);
-            
-            int placed = generateVeinInChunk(chunk, x, y, z, size, chunkRandom);
-            if (placed > 0) {
-                totalPlaced += placed;
-                veinsCreated++;
-            }
-        }
-        
-        if (veinsCreated > 0) {
-            LOGGER.atFine().log("Generated %d coal ore veins (%d blocks) in chunk [%d, %d]", 
-                veinsCreated, totalPlaced, chunk.getX(), chunk.getZ());
+        if (placed > 0) {
+            LOGGER.atFine().log("Generated %d coal ore blocks in chunk [%d, %d]", 
+                placed, chunk.getX(), chunk.getZ());
         }
     }
     
-    /**
-     * Initialize and cache block IDs for better performance.
-     * @return true if initialization succeeded
-     */
     private boolean initializeBlockIds() {
         if (coalOreId != Integer.MIN_VALUE) {
-            return true; // Already initialized
+            return true;
         }
         
         coalOreType = BlockType.getAssetMap().getAsset(COAL_ORE_BLOCK);
@@ -168,127 +109,9 @@ public class CoalOrePlugin extends JavaPlugin {
         }
         
         coalOreId = BlockType.getAssetMap().getIndex(COAL_ORE_BLOCK);
-        stoneId = BlockType.getAssetMap().getIndex(STONE_BLOCK);
-        
-        // Cache all replaceable block IDs
-        String[] replaceableBlockNames = {
-            "Rock_Stone", "Rock_Stone_Cobble", "Rock_Stone_Mossy",
-            "Rock_Sandstone", "Rock_Sandstone_Cobble",
-            "Rock_Basalt", "Rock_Basalt_Cobble",
-            "Rock_Marble", "Rock_Marble_Cobble",
-            "Rock_Granite", "Rock_Granite_Cobble",
-            "Dirt", "Dirt_Grass", "Dirt_Dry",
-            "Gravel", "Clay"
-        };
-        
-        replaceableBlockIds = new int[replaceableBlockNames.length];
-        for (int i = 0; i < replaceableBlockNames.length; i++) {
-            replaceableBlockIds[i] = BlockType.getAssetMap().getIndex(replaceableBlockNames[i]);
-        }
-        
-        LOGGER.atInfo().log("Initialized coal ore generation - ore ID: %d, stone ID: %d", coalOreId, stoneId);
         return true;
     }
     
-    /**
-     * Generate a coal ore vein within a chunk during world generation.
-     * This version works directly with the chunk being generated.
-     */
-    private int generateVeinInChunk(WorldChunk chunk, int centerX, int centerY, int centerZ, int size, Random rand) {
-        int placed = 0;
-        
-        // Generate a blob-like vein using multiple overlapping spheres
-        for (int i = 0; i < size; i++) {
-            float progress = (float) i / size;
-            float angle1 = rand.nextFloat() * (float) Math.PI * 2;
-            float angle2 = rand.nextFloat() * (float) Math.PI * 2;
-            
-            int offsetX = (int) (Math.cos(angle1) * progress * 2);
-            int offsetY = (int) (Math.sin(angle1) * Math.cos(angle2) * progress * 2);
-            int offsetZ = (int) (Math.sin(angle2) * progress * 2);
-            
-            int x = centerX + offsetX;
-            int y = centerY + offsetY;
-            int z = centerZ + offsetZ;
-            
-            // Place a small cluster at this position
-            int clusterRadius = 1 + rand.nextInt(2);
-            
-            for (int dx = -clusterRadius; dx <= clusterRadius; dx++) {
-                for (int dy = -clusterRadius; dy <= clusterRadius; dy++) {
-                    for (int dz = -clusterRadius; dz <= clusterRadius; dz++) {
-                        double dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                        if (dist <= clusterRadius + rand.nextFloat() * 0.5) {
-                            int bx = x + dx;
-                            int by = y + dy;
-                            int bz = z + dz;
-                            
-                            // Bounds check
-                            if (by < 1 || by > 310) continue;
-                            
-                            // Check if this block is in the current chunk
-                            int blockChunkX = bx >> 5;
-                            int blockChunkZ = bz >> 5;
-                            if (blockChunkX != chunk.getX() || blockChunkZ != chunk.getZ()) {
-                                continue; // Skip blocks outside this chunk
-                            }
-                            
-                            // Try to place coal ore
-                            if (placeCoalOreInChunk(chunk, bx, by, bz)) {
-                                placed++;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        return placed;
-    }
-    
-    /**
-     * Place a single coal ore block in a chunk, only replacing stone-like blocks.
-     */
-    private boolean placeCoalOreInChunk(WorldChunk chunk, int x, int y, int z) {
-        try {
-            int currentBlock = chunk.getBlock(x, y, z);
-            
-            // Check if current block is replaceable
-            if (isReplaceableBlockId(currentBlock)) {
-                // setBlock: x, y, z, blockId, blockType, rotation, filler, settings
-                // settings: 4 = no particles, helps with performance during generation
-                chunk.setBlock(x, y, z, coalOreId, coalOreType, 0, 0, 4);
-                return true;
-            }
-            
-            return false;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-    
-    /**
-     * Fast check if a block ID is replaceable (uses cached IDs).
-     */
-    private boolean isReplaceableBlockId(int blockId) {
-        if (blockId == stoneId) return true;
-        
-        if (replaceableBlockIds != null) {
-            for (int id : replaceableBlockIds) {
-                if (id != Integer.MIN_VALUE && id == blockId) {
-                    return true;
-                }
-            }
-        }
-        
-        return false;
-    }
-    
-    // ========== COMMANDS (for manual ore spawning) ==========
-    
-    /**
-     * Main command collection for coal ore operations
-     */
     private class CoalOreCommand extends AbstractCommandCollection {
         
         public CoalOreCommand() {
@@ -301,9 +124,6 @@ public class CoalOrePlugin extends JavaPlugin {
         }
     }
     
-    /**
-     * Spawns a single coal ore vein at the player's location
-     */
     private class SpawnCommand extends AbstractPlayerCommand {
         
         @Nonnull
@@ -339,9 +159,6 @@ public class CoalOrePlugin extends JavaPlugin {
         }
     }
     
-    /**
-     * Generates multiple coal ore veins in an area around the player
-     */
     private class GenerateCommand extends AbstractPlayerCommand {
         
         @Nonnull
@@ -399,9 +216,6 @@ public class CoalOrePlugin extends JavaPlugin {
         }
     }
     
-    /**
-     * Fills an underground area with coal ore veins at regular intervals
-     */
     private class FillCommand extends AbstractPlayerCommand {
         
         @Nonnull
@@ -458,10 +272,6 @@ public class CoalOrePlugin extends JavaPlugin {
         }
     }
     
-    /**
-     * Spawns a coal ore vein at the specified position (for commands).
-     * Uses a blob-like pattern similar to Minecraft ore generation.
-     */
     private int spawnCoalOreVein(World world, int centerX, int centerY, int centerZ, int size) {
         if (!initializeBlockIds()) {
             return 0;
@@ -483,21 +293,21 @@ public class CoalOrePlugin extends JavaPlugin {
             int z = centerZ + offsetZ;
             
             int clusterRadius = 1 + random.nextInt(2);
+            double radiusSq = clusterRadius * clusterRadius + 0.5;
             
             for (int dx = -clusterRadius; dx <= clusterRadius; dx++) {
                 for (int dy = -clusterRadius; dy <= clusterRadius; dy++) {
                     for (int dz = -clusterRadius; dz <= clusterRadius; dz++) {
-                        double dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                        if (dist <= clusterRadius + random.nextFloat() * 0.5) {
-                            int bx = x + dx;
-                            int by = y + dy;
-                            int bz = z + dz;
-                            
-                            if (by < 1 || by > 310) continue;
-                            
-                            if (placeCoalOre(world, bx, by, bz)) {
-                                placed++;
-                            }
+                        if (dx*dx + dy*dy + dz*dz > radiusSq) continue;
+                        
+                        int bx = x + dx;
+                        int by = y + dy;
+                        int bz = z + dz;
+                        
+                        if (by < 1 || by > 310) continue;
+                        
+                        if (placeCoalOre(world, bx, by, bz)) {
+                            placed++;
                         }
                     }
                 }
@@ -507,9 +317,6 @@ public class CoalOrePlugin extends JavaPlugin {
         return placed;
     }
     
-    /**
-     * Places a single coal ore block (for commands), only replacing stone-like blocks.
-     */
     private boolean placeCoalOre(World world, int x, int y, int z) {
         try {
             long chunkIndex = ChunkUtil.indexChunkFromBlock(x, z);
@@ -520,8 +327,9 @@ public class CoalOrePlugin extends JavaPlugin {
             }
             
             int currentBlock = chunk.getBlock(x, y, z);
+            int stoneId = BlockType.getAssetMap().getIndex("Rock_Stone");
             
-            if (isReplaceableBlockId(currentBlock)) {
+            if (currentBlock == stoneId || isReplaceableBlockId(currentBlock)) {
                 chunk.setBlock(x, y, z, coalOreId, coalOreType, 0, 0, 4);
                 return true;
             }
@@ -530,5 +338,26 @@ public class CoalOrePlugin extends JavaPlugin {
         } catch (Exception e) {
             return false;
         }
+    }
+    
+    private boolean isReplaceableBlockId(int blockId) {
+        String[] replaceableBlockNames = {
+            "Rock_Stone_Cobble", "Rock_Stone_Mossy",
+            "Rock_Sandstone", "Rock_Sandstone_Cobble",
+            "Rock_Basalt", "Rock_Basalt_Cobble",
+            "Rock_Marble", "Rock_Marble_Cobble",
+            "Rock_Granite", "Rock_Granite_Cobble",
+            "Dirt", "Dirt_Grass", "Dirt_Dry",
+            "Gravel", "Clay"
+        };
+        
+        for (String name : replaceableBlockNames) {
+            int id = BlockType.getAssetMap().getIndex(name);
+            if (id != Integer.MIN_VALUE && id == blockId) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 }
