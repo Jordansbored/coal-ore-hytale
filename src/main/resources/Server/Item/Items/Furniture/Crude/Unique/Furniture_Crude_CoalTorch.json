@@ -1,6 +1,8 @@
 {
-  "Name": "Coal Torch",
-  "Description": "A torch made from coal ore. Burns with a fiery glow.",
+  "TranslationProperties": {
+    "Name": "Coal Torch",
+    "Description": "A torch made from coal ore. Burns with a fiery glow."
+  },
   "InteractionConfig": {
     "Priorities": {
       "Secondary": {
