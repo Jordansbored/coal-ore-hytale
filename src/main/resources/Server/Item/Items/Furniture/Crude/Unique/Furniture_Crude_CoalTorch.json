@@ -1,8 +1,6 @@
 {
-  "TranslationProperties": {
-    "Name": "items.Furniture_Crude_CoalTorch.name",
-    "Description": "items.Furniture_Crude_CoalTorch.description"
-  },
+  "Name": "Coal Torch",
+  "Description": "A torch made from coal ore. Burns with a fiery glow.",
   "InteractionConfig": {
     "Priorities": {
       "Secondary": {
