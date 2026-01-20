@@ -2,7 +2,7 @@
   "TranslationProperties": {
     "Name": "server.Ore_Coal_Sandstone.name"
   },
-  "Icon": "Icons/ItemsGenerated/Ore_Coal.png",
+  "Icon": "Icons/ItemsGenerated/Ore_Coal_Sandstone.png",
   "Categories": [
     "Blocks.Ores"
   ],
@@ -28,11 +28,17 @@
             "Containers": [
               {
                 "Type": "Single",
-                "Item": { "ItemId": "Ore_Coal", "QuantityMin": 1, "QuantityMax": 3 }
+                "Item": {
+                  "ItemId": "Ore_Coal",
+                  "QuantityMin": 1,
+                  "QuantityMax": 3
+                }
               },
               {
                 "Type": "Single",
-                "Item": { "ItemId": "Rock_Sandstone_Cobble" }
+                "Item": {
+                  "ItemId": "Rock_Sandstone_Cobble"
+                }
               }
             ]
           }
@@ -59,5 +65,17 @@
     ]
   },
   "MaxStack": 25,
-  "ItemSoundSetId": "ISS_Blocks_Stone"
+  "ItemSoundSetId": "ISS_Blocks_Stone",
+  "IconProperties": {
+    "Scale": 0.58823,
+    "Rotation": [
+      22.5,
+      45,
+      22.5
+    ],
+    "Translation": [
+      0,
+      -13.5
+    ]
+  }
 }

@@ -12,14 +12,14 @@
   "PlayerAnimationsId": "Block",
   "IconProperties": {
     "Scale": 0.57323,
-    "Translation": [
-      -3.6,
-      -16.200001
-    ],
     "Rotation": [
       22.5,
       45,
       22.5
+    ],
+    "Translation": [
+      -3.6,
+      -16.2
     ]
   },
   "ResourceTypes": [
