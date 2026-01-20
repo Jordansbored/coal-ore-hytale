@@ -1,0 +1,25 @@
+{
+  "Spawners": [
+    {
+      "SpawnerId": "CoalTorch_Smoke_Cartoon"
+    },
+    {
+      "Attractors": [],
+      "SpawnerId": "CoalTorch_Fire_Center"
+    },
+    {
+      "SpawnerId": "CoalTorch_Fire_Up"
+    },
+    {
+      "SpawnerId": "CoalTorch_Embers"
+    },
+    {
+      "SpawnerId": "Coal_Fire_Center_Blue"
+    },
+    {
+      "SpawnerId": "CoalTorch_Sparks_Up"
+    }
+  ],
+  "$Comment": "Coal Torch - Red fire tornado with embers",
+  "CullDistance": 200
+}
