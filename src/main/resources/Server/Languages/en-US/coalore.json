@@ -1,8 +1,11 @@
 {
   "server.Ore_Coal.name": "Coal",
   "server.Ore_Coal.description": "A dense coal that burns 8x longer than charcoal!",
-  "server.CoalTorch.name": "Coal Torch",
-  "server.CoalTorch.description": "A torch made from coal ore. Burns with a fiery glow.",
+  "server.Torch_Coal.name": "Coal Torch",
+  "server.Torch_Coal.description": "A torch made from coal ore. Burns with a fiery glow.",
+  "Torch_Coal.name": "Coal Torch",
+  "torch_coal.name": "Coal Torch",
+  "furniture_crude_coaltorch.name": "Coal Torch",
   "server.Ore_Coal_Stone.name": "Coal Ore",
   "server.Ore_Coal_Sandstone.name": "Coal Ore",
   "server.Ore_Coal_Sandstone_Red.name": "Coal Ore",

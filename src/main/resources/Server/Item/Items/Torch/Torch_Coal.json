@@ -1,7 +1,6 @@
 {
   "TranslationProperties": {
-    "Name": "server.CoalTorch.name",
-    "Description": "server.CoalTorch.description"
+    "Name": "Coal Torch"
   },
   "InteractionConfig": {
     "Priorities": {
@@ -45,7 +44,7 @@
     "Torch_Swing_Right_Damage": "Torch_Swing_Right_Damage"
   },
   "Categories": [
-    "Furniture.Lighting"
+    "Items"
   ],
   "Utility": {
     "Usable": true
@@ -169,7 +168,7 @@
       -17.7
     ]
   },
-  "Icon": "Icons/ItemsGenerated/Deco_CoalTorch.png",
+  "Icon": "Icons/ItemsGenerated/Torch_Coal.png",
   "ResourceTypes": [
     {
       "Id": "Fuel"
