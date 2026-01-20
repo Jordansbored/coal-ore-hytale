@@ -36,10 +36,6 @@ public class CoalOrePlugin extends JavaPlugin {
     private static final int MAX_Y = 80;
     private static final double GRID_SCALE = 22.0;
     private static final double JITTER = 0.5;
-    private static final int RANGE_X = 2;
-    private static final int RANGE_Y = 2;
-    private static final int RANGE_Z = 2;
-    private static final int RESULT_CAP = 1;
     private static final double SPAWN_WEIGHT = 80.0;
     private static final double MAX_WEIGHT = 100.0;
     private static final long SEED = 12345L;
@@ -61,7 +57,6 @@ public class CoalOrePlugin extends JavaPlugin {
         
         this.oreGenerator = new JitteredOreGenerator(
             MIN_Y, MAX_Y, GRID_SCALE, JITTER,
-            RANGE_X, RANGE_Y, RANGE_Z, RESULT_CAP,
             SPAWN_WEIGHT, MAX_WEIGHT, SEED
         );
         

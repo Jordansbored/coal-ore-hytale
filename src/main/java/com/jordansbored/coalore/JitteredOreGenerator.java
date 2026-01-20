@@ -5,7 +5,6 @@ import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 
 import javax.annotation.Nonnull;
-import java.util.HashSet;
 
 public class JitteredOreGenerator {
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
@@ -19,29 +18,20 @@ public class JitteredOreGenerator {
     private final int maxY;
     private final double gridScale;
     private final double jitter;
-    private final int rangeX;
-    private final int rangeY;
-    private final int rangeZ;
-    private final int resultCap;
     private final double spawnWeight;
     private final double maxWeight;
     private final long seed;
     
     private int coalOreId = Integer.MIN_VALUE;
     private BlockType coalOreType = null;
-    private static HashSet<Integer> replaceableBlockIds;
+    private int stoneId = Integer.MIN_VALUE;
     
     public JitteredOreGenerator(int minY, int maxY, double gridScale, double jitter,
-                                 int rangeX, int rangeY, int rangeZ, int resultCap,
                                  double spawnWeight, double maxWeight, long seed) {
         this.minY = minY;
         this.maxY = maxY;
         this.gridScale = gridScale;
         this.jitter = jitter;
-        this.rangeX = rangeX;
-        this.rangeY = rangeY;
-        this.rangeZ = rangeZ;
-        this.resultCap = resultCap;
         this.spawnWeight = spawnWeight;
         this.maxWeight = maxWeight;
         this.seed = seed;
@@ -77,25 +67,15 @@ public class JitteredOreGenerator {
                     continue;
                 }
                 
-                for (int scanY = minY; scanY < maxY && scanY <= minY + resultCap * rangeY; scanY += rangeY) {
-                    int placedInColumn = 0;
-                    
-                    for (int dx = 0; dx < rangeX && placedInColumn < resultCap; dx++) {
-                        for (int dy = 0; dy < rangeY && placedInColumn < resultCap; dy++) {
-                            for (int dz = 0; dz < rangeZ && placedInColumn < resultCap; dz++) {
-                                int bx = worldX + dx;
-                                int by = scanY + dy;
-                                int bz = worldZ + dz;
-                                
-                                if (by < minY || by > maxY) continue;
-                                
-                                if (placeOre(chunk, bx, by, bz)) {
-                                    placedInColumn++;
-                                    totalPlaced++;
-                                }
-                            }
-                        }
+                int y = minY + (int) (fastRandom(seed + pointX * 7919 + pointZ * 104729 + 1) * (maxY - minY));
+                
+                try {
+                    int currentBlock = chunk.getBlock(worldX, y, worldZ);
+                    if (currentBlock == stoneId) {
+                        chunk.setBlock(worldX, y, worldZ, coalOreId, coalOreType, 0, 0, 4);
+                        totalPlaced++;
                     }
+                } catch (Exception e) {
                 }
             }
         }
@@ -155,45 +135,9 @@ public class JitteredOreGenerator {
         }
         
         coalOreId = BlockType.getAssetMap().getIndex("Ore_Coal_Stone");
-        
-        replaceableBlockIds = new HashSet<>();
-        String[] blockNames = {
-            "Rock_Stone", "Rock_Stone_Cobble", "Rock_Stone_Mossy",
-            "Rock_Sandstone", "Rock_Sandstone_Cobble",
-            "Rock_Basalt", "Rock_Basalt_Cobble",
-            "Rock_Marble", "Rock_Marble_Cobble",
-            "Rock_Granite", "Rock_Granite_Cobble",
-            "Dirt", "Dirt_Grass", "Dirt_Dry",
-            "Gravel", "Clay"
-        };
-        
-        for (String name : blockNames) {
-            int id = BlockType.getAssetMap().getIndex(name);
-            if (id != Integer.MIN_VALUE) {
-                replaceableBlockIds.add(id);
-            }
-        }
+        stoneId = BlockType.getAssetMap().getIndex("Rock_Stone");
         
         return true;
-    }
-    
-    private boolean placeOre(WorldChunk chunk, int x, int y, int z) {
-        try {
-            int blockChunkX = x >> 5;
-            int blockChunkZ = z >> 5;
-            if (blockChunkX != chunk.getX() || blockChunkZ != chunk.getZ()) {
-                return false;
-            }
-            
-            int currentBlock = chunk.getBlock(x, y, z);
-            if (replaceableBlockIds.contains(currentBlock)) {
-                chunk.setBlock(x, y, z, coalOreId, coalOreType, 0, 0, 4);
-                return true;
-            }
-            return false;
-        } catch (Exception e) {
-            return false;
-        }
     }
     
     private static class Vector3d {
