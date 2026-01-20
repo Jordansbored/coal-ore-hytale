@@ -1,7 +1,7 @@
 {
   "TranslationProperties": {
-    "Name": "server.Ore_Coal.name",
-    "Description": "server.Ore_Coal.description"
+    "Name": "Coal",
+    "Description": "A dense coal that burns 8x longer than charcoal!"
   },
   "Categories": [
     "Blocks.Ores"
