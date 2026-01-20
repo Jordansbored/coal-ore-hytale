@@ -37,10 +37,17 @@ public class JitteredOreGenerator {
         this.seed = seed;
     }
     
+    private static long totalGenerationTimeNanos = 0;
+    private static long totalChunksGenerated = 0;
+    private static long maxGenerationTimeNanos = 0;
+    private static long minGenerationTimeNanos = Long.MAX_VALUE;
+    
     public int generateOre(@Nonnull WorldChunk chunk) {
         if (!initializeBlockIds()) {
             return 0;
         }
+        
+        long startTime = System.nanoTime();
         
         int chunkX = chunk.getX() << 5;
         int chunkZ = chunk.getZ() << 5;
@@ -80,7 +87,48 @@ public class JitteredOreGenerator {
             }
         }
         
+        long elapsedNanos = System.nanoTime() - startTime;
+        
+        synchronized (JitteredOreGenerator.class) {
+            totalGenerationTimeNanos += elapsedNanos;
+            totalChunksGenerated++;
+            if (elapsedNanos > maxGenerationTimeNanos) {
+                maxGenerationTimeNanos = elapsedNanos;
+            }
+            if (elapsedNanos < minGenerationTimeNanos) {
+                minGenerationTimeNanos = elapsedNanos;
+            }
+        }
+        
+        if (totalPlaced > 0) {
+            double elapsedMs = elapsedNanos / 1_000_000.0;
+            LOGGER.atFine().log("Generated %d coal ore blocks in chunk [%d, %d] in %.3fms", 
+                totalPlaced, chunk.getX(), chunk.getZ(), elapsedMs);
+        }
+        
         return totalPlaced;
+    }
+    
+    public static String getTimingStats() {
+        synchronized (JitteredOreGenerator.class) {
+            if (totalChunksGenerated == 0) {
+                return "No chunks generated yet";
+            }
+            double avgMs = (totalGenerationTimeNanos / (double) totalChunksGenerated) / 1_000_000.0;
+            double maxMs = maxGenerationTimeNanos / 1_000_000.0;
+            double minMs = minGenerationTimeNanos / 1_000_000.0;
+            return String.format("CoalOre Timing: chunks=%d, avg=%.3fms, min=%.3fms, max=%.3fms",
+                totalChunksGenerated, avgMs, minMs, maxMs);
+        }
+    }
+    
+    public static void resetTimingStats() {
+        synchronized (JitteredOreGenerator.class) {
+            totalGenerationTimeNanos = 0;
+            totalChunksGenerated = 0;
+            maxGenerationTimeNanos = 0;
+            minGenerationTimeNanos = Long.MAX_VALUE;
+        }
     }
     
     private static Vector3d generatePoint(long seed, double jitter, double scale, int gridX, int gridZ) {

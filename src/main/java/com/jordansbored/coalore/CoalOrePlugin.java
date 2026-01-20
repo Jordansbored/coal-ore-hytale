@@ -116,6 +116,21 @@ public class CoalOrePlugin extends JavaPlugin {
             this.addSubCommand(new SpawnCommand());
             this.addSubCommand(new GenerateCommand());
             this.addSubCommand(new FillCommand());
+            this.addSubCommand(new StatsCommand());
+        }
+    }
+    
+    private class StatsCommand extends AbstractPlayerCommand {
+        
+        public StatsCommand() {
+            super("stats", "Show coal ore generation timing stats");
+        }
+        
+        @Override
+        protected void execute(@Nonnull CommandContext context, @Nonnull Store<EntityStore> store, 
+                             @Nonnull Ref<EntityStore> ref, @Nonnull PlayerRef playerRef, @Nonnull World world) {
+            String stats = JitteredOreGenerator.getTimingStats();
+            context.sendMessage(Message.raw(stats));
         }
     }
     
