@@ -1,7 +1,7 @@
 {
   "TranslationProperties": {
-    "Name": "Coal Torch",
-    "Description": "A torch made from coal ore. Burns with a fiery glow."
+    "Name": "CoalTorch.name",
+    "Description": "CoalTorch.description"
   },
   "InteractionConfig": {
     "Priorities": {
