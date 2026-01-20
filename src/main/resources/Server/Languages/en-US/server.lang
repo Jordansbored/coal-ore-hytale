@@ -1,7 +1,7 @@
 Ore_Coal.name = Coal
 Ore_Coal.description = A dense coal that burns 8x longer than charcoal!
-server.items.Furniture_Crude_CoalTorch.name = Coal Torch
-server.items.Furniture_Crude_CoalTorch.description = A torch made from coal ore. Burns with a fiery glow.
+items.Furniture_Crude_CoalTorch.name = Coal Torch
+items.Furniture_Crude_CoalTorch.description = A torch made from coal ore. Burns with a fiery glow.
 Ore_Coal_Stone.name = Coal Ore
 Ore_Coal_Sandstone.name = Coal Ore
 Ore_Coal_Sandstone_Red.name = Coal Ore

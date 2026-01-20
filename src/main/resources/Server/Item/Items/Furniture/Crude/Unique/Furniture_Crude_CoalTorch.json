@@ -1,7 +1,7 @@
 {
   "TranslationProperties": {
-    "Name": "server.items.Furniture_Crude_CoalTorch.name",
-    "Description": "server.items.Furniture_Crude_CoalTorch.description"
+    "Name": "items.Furniture_Crude_CoalTorch.name",
+    "Description": "items.Furniture_Crude_CoalTorch.description"
   },
   "InteractionConfig": {
     "Priorities": {
