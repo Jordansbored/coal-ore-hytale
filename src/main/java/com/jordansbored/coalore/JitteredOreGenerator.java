@@ -69,8 +69,8 @@ public class JitteredOreGenerator {
                 int pointX = (int) Math.floor(point.x);
                 int pointZ = (int) Math.floor(point.z);
                 
-                int worldX = chunkX + (pointX % 32);
-                int worldZ = chunkZ + (pointZ % 32);
+                int worldX = chunkX + ((pointX - chunkX) % 32 + 32) % 32;
+                int worldZ = chunkZ + ((pointZ - chunkZ) % 32 + 32) % 32;
                 
                 double probability = spawnWeight / maxWeight;
                 if (fastRandom(seed + pointX * 7919 + pointZ * 104729) > probability) {
