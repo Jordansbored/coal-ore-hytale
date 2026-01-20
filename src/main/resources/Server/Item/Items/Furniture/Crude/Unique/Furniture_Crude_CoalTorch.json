@@ -1,7 +1,7 @@
 {
   "TranslationProperties": {
-    "Name": "Furniture_Crude_CoalTorch.name",
-    "Description": "Furniture_Crude_CoalTorch.description"
+    "Name": "server.items.Furniture_Crude_CoalTorch.name",
+    "Description": "server.items.Furniture_Crude_CoalTorch.description"
   },
   "InteractionConfig": {
     "Priorities": {
@@ -169,7 +169,7 @@
       -17.7
     ]
   },
-  "Icon": "Icons/ItemsGenerated/Furniture_Crude_CoalTorch.png",
+  "Icon": "Icons/ItemsGenerated/Deco_CoalTorch.png",
   "ResourceTypes": [
     {
       "Id": "Fuel"
