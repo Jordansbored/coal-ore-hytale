@@ -1,7 +1,7 @@
 {
   "TranslationProperties": {
-    "Name": "CoalTorch.name",
-    "Description": "CoalTorch.description"
+    "Name": "server.CoalTorch.name",
+    "Description": "server.CoalTorch.description"
   },
   "InteractionConfig": {
     "Priorities": {
