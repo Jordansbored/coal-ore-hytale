@@ -1,0 +1,83 @@
+{
+  "ItemId": "Torch_Coal_Wall",
+  "BlockType": {
+    "Material": "Empty",
+    "DrawType": "Model",
+    "Opacity": "Transparent",
+    "CustomModel": "Items/Torch/Torch_Wall.blockymodel",
+    "CustomModelTexture": [
+      {
+        "Texture": "Items/Torch/Torch_Wall_Texture.png",
+        "Weight": 1,
+        "Color": "#222222"
+      }
+    ],
+    "HitboxType": "Torch_Wall",
+    "Flags": {},
+    "Gathering": {
+      "Soft": {
+        "IsWeaponBreakable": false,
+        "ItemId": "Torch_Coal"
+      }
+    },
+    "PlacementSettings": {
+      "RotationMode": "BlockNormal",
+      "PlaceInEmptyBlocks": true
+    },
+    "VariantRotation": "NESW",
+    "Light": {
+      "Radius": 0,
+      "Color": "#f44"
+    },
+    "Particles": [
+      {
+        "SystemId": "CoalTorchFire",
+        "TargetNodeName": "Flame",
+        "Scale": 0.7,
+        "PositionOffset": {
+          "Y": -0.2
+        },
+        "RotationOffset": {
+          "Yaw": 180
+        },
+        "Color": "#1a1a1a"
+      }
+    ],
+    "InteractionHint": "server.interactionHints.turnoff",
+    "Interactions": {
+      "Use": {
+        "Interactions": [
+          {
+            "Type": "ChangeState",
+            "Changes": {
+              "default": "Off",
+              "Off": "default"
+            }
+          }
+        ]
+      }
+    },
+    "State": {
+      "Definitions": {
+        "Off": {
+          "InteractionHint": "server.interactionHints.turnon",
+          "Light": null,
+          "Particles": null,
+          "InteractionSoundEventId": "SFX_Torch_Off",
+          "AmbientSoundEventId": null
+        }
+      }
+    },
+    "Support": {
+      "North": [
+        {
+          "FaceType": "Full"
+        }
+      ]
+    },
+    "AmbientSoundEventId": "SFX_Torch_Default_Loop",
+    "Looping": true,
+    "BlockParticleSetId": "Dust",
+    "BlockSoundSetId": "Torch"
+  }
+}
