@@ -1,9 +1,20 @@
 package com.jordansbored.coalore;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+
+import javax.annotation.Nonnull;
+
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.event.EventPriority;
 import com.hypixel.hytale.logger.HytaleLogger;
+import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.protocol.GameMode;
 import com.hypixel.hytale.server.core.Message;
@@ -21,13 +32,11 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.events.ChunkPreLoadProcessEvent;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import com.hypixel.hytale.math.util.ChunkUtil;
-
-import javax.annotation.Nonnull;
-import java.util.Random;
 
 /**
  * Coal Ore Plugin - Spawns coal ore veins naturally during world generation
+ * Just be aware i started learning java the day hytale came out and i've been using alot of ai to speed learn so dont use this as the basis for alot 
+ * currently it will cause between 150-500ms chunk generation slowdowns depending on how many veins spawn thats between 1-3 veins per chunk
  * 
  * Natural Generation:
  * - Automatically generates coal ore veins when new chunks are created
@@ -49,11 +58,11 @@ public class CoalOrePlugin extends JavaPlugin {
     
     // Generation settings
     private static final int MIN_Y = 10;
-    private static final int MAX_Y = 60;
-    private static final int VEINS_PER_CHUNK = 2;  // Average veins per chunk (rare)
+    private static final int MAX_Y = 90;
+    private static final int VEINS_PER_CHUNK = 5;  // Average veins per chunk 
     private static final int MIN_VEIN_SIZE = 3;
     private static final int MAX_VEIN_SIZE = 7;
-    private static final double SPAWN_CHANCE = 0.6; // 60% chance per chunk to spawn any veins
+    private static final double SPAWN_CHANCE = 0.9; // 90% chance per chunk to spawn any veins
     
     private final Random random = new Random();
     
@@ -61,7 +70,7 @@ public class CoalOrePlugin extends JavaPlugin {
     private int coalOreId = Integer.MIN_VALUE;
     private BlockType coalOreType = null;
     private int stoneId = Integer.MIN_VALUE;
-    private int[] replaceableBlockIds = null;
+    private Set<Integer> replaceableBlockIds = null;
 
     public CoalOrePlugin(@Nonnull JavaPluginInit init) {
         super(init);
@@ -127,29 +136,71 @@ public class CoalOrePlugin extends JavaPlugin {
         // Generate veins in this chunk (1-3 veins when spawning)
         int numVeins = VEINS_PER_CHUNK + chunkRandom.nextInt(2); // 2-3 veins
         
-        for (int i = 0; i < numVeins; i++) {
-            // Random position within chunk
-            int x = chunkX + chunkRandom.nextInt(32);
-            int z = chunkZ + chunkRandom.nextInt(32);
-            
-            // Y level with bias toward lower depths (coal is more common deeper)
-            // Use triangular distribution favoring lower Y values
-            int y = MIN_Y + (int) (Math.pow(chunkRandom.nextDouble(), 1.5) * (MAX_Y - MIN_Y));
-            
-            // Random vein size
-            int size = MIN_VEIN_SIZE + chunkRandom.nextInt(MAX_VEIN_SIZE - MIN_VEIN_SIZE + 1);
-            
-            int placed = generateVeinInChunk(chunk, x, y, z, size, chunkRandom);
-            if (placed > 0) {
-                totalPlaced += placed;
-                veinsCreated++;
+        // Use a seeded Random based on chunk coordinates so generation is deterministic.
+        // We'll perform a lightweight check now and defer the heavy placement work
+        // to `world.execute(...)` so we do not block the chunk pre-load process hook.
+        Random seedRand = new Random(chunkSeed);
+        double roll = seedRand.nextDouble();
+        if (roll > SPAWN_CHANCE) {
+            return; // No coal ore in this chunk
+        }
+
+        // Determine number of veins using the same seeded RNG
+        int numVeinsLocal = VEINS_PER_CHUNK + seedRand.nextInt(2);
+
+        // Capture values needed in the deferred task
+        final int fChunkX = chunkX;
+        final int fChunkZ = chunkZ;
+        final int fChunkCoordX = chunk.getX();
+        final int fChunkCoordZ = chunk.getZ();
+        final long fChunkSeed = chunkSeed;
+        final int fNumVeins = numVeinsLocal;
+
+        // Defer actual generation to avoid blocking the pre-load hook.
+        World world = chunk.getWorld();
+        world.execute(() -> {
+            // Recreate RNG from the same seed and advance it past the values
+            // we consumed for the spawn check and vein-count so the deferred
+            // generation uses the identical sequence of randomness.
+            Random deferredRand = new Random(fChunkSeed);
+            // advance past spawn check and vein-count
+            deferredRand.nextDouble();
+            deferredRand.nextInt(2);
+
+            int totalPlacedLocal = 0;
+            int veinsCreatedLocal = 0;
+            long chunkStart = System.nanoTime();
+
+            // Fetch the chunk reference once in the deferred context
+            long chunkIndex = ChunkUtil.indexChunkFromBlock(fChunkX, fChunkZ);
+            WorldChunk deferredChunk = (WorldChunk) world.getNonTickingChunk(chunkIndex);
+            if (deferredChunk == null) {
+                return; // chunk not available for deferred modification
             }
-        }
-        
-        if (veinsCreated > 0) {
-            LOGGER.atFine().log("Generated %d coal ore veins (%d blocks) in chunk [%d, %d]", 
-                veinsCreated, totalPlaced, chunk.getX(), chunk.getZ());
-        }
+
+            for (int i = 0; i < fNumVeins; i++) {
+                int x = fChunkX + deferredRand.nextInt(32);
+                int z = fChunkZ + deferredRand.nextInt(32);
+
+                int y = MIN_Y + (int) (Math.pow(deferredRand.nextDouble(), 1.5) * (MAX_Y - MIN_Y));
+
+                int size = MIN_VEIN_SIZE + deferredRand.nextInt(MAX_VEIN_SIZE - MIN_VEIN_SIZE + 1);
+
+                int placed = generateVeinInChunk(deferredChunk, x, y, z, size, deferredRand);
+                if (placed > 0) {
+                    totalPlacedLocal += placed;
+                    veinsCreatedLocal++;
+                }
+            }
+
+            long chunkEnd = System.nanoTime();
+            long chunkMs = (chunkEnd - chunkStart) / 1_000_000L;
+
+            if (veinsCreatedLocal > 0) {
+                LOGGER.atInfo().log("Generated %d coal ore veins (%d blocks) in chunk [%d, %d] in %d ms",
+                    veinsCreatedLocal, totalPlacedLocal, fChunkCoordX, fChunkCoordZ, chunkMs);
+            }
+        });
     }
     
     /**
@@ -181,9 +232,10 @@ public class CoalOrePlugin extends JavaPlugin {
             "Gravel", "Clay"
         };
         
-        replaceableBlockIds = new int[replaceableBlockNames.length];
+        replaceableBlockIds = new HashSet<>(replaceableBlockNames.length * 2);
         for (int i = 0; i < replaceableBlockNames.length; i++) {
-            replaceableBlockIds[i] = BlockType.getAssetMap().getIndex(replaceableBlockNames[i]);
+            int id = BlockType.getAssetMap().getIndex(replaceableBlockNames[i]);
+            replaceableBlockIds.add(id);
         }
         
         LOGGER.atInfo().log("Initialized coal ore generation - ore ID: %d, stone ID: %d", coalOreId, stoneId);
@@ -196,16 +248,17 @@ public class CoalOrePlugin extends JavaPlugin {
      */
     private int generateVeinInChunk(WorldChunk chunk, int centerX, int centerY, int centerZ, int size, Random rand) {
         int placed = 0;
+        long start = System.nanoTime();
+        int candidateChecks = 0;
         
         // Generate a blob-like vein using multiple overlapping spheres
         for (int i = 0; i < size; i++) {
             float progress = (float) i / size;
-            float angle1 = rand.nextFloat() * (float) Math.PI * 2;
-            float angle2 = rand.nextFloat() * (float) Math.PI * 2;
-            
-            int offsetX = (int) (Math.cos(angle1) * progress * 2);
-            int offsetY = (int) (Math.sin(angle1) * Math.cos(angle2) * progress * 2);
-            int offsetZ = (int) (Math.sin(angle2) * progress * 2);
+            // Replace expensive trig calls with simple randomized offsets.
+            // This preserves a roughly similar spread while avoiding Math.sin/Math.cos.
+            int offsetX = (int) ((rand.nextDouble() * 2.0 - 1.0) * progress * 2);
+            int offsetY = (int) ((rand.nextDouble() * 2.0 - 1.0) * progress * 2);
+            int offsetZ = (int) ((rand.nextDouble() * 2.0 - 1.0) * progress * 2);
             
             int x = centerX + offsetX;
             int y = centerY + offsetY;
@@ -213,26 +266,34 @@ public class CoalOrePlugin extends JavaPlugin {
             
             // Place a small cluster at this position
             int clusterRadius = 1 + rand.nextInt(2);
-            
+            double r = clusterRadius + rand.nextFloat() * 0.5;
+            double r2 = r * r;
+
             for (int dx = -clusterRadius; dx <= clusterRadius; dx++) {
                 for (int dy = -clusterRadius; dy <= clusterRadius; dy++) {
                     for (int dz = -clusterRadius; dz <= clusterRadius; dz++) {
-                        double dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                        if (dist <= clusterRadius + rand.nextFloat() * 0.5) {
+                        int ddx = dx*dx;
+                        int ddy = dy*dy;
+                        int ddz = dz*dz;
+                        int dist2 = ddx + ddy + ddz;
+                        if ((double) dist2 <= r2) {
                             int bx = x + dx;
                             int by = y + dy;
                             int bz = z + dz;
-                            
+
                             // Bounds check
                             if (by < 1 || by > 310) continue;
-                            
+
                             // Check if this block is in the current chunk
                             int blockChunkX = bx >> 5;
                             int blockChunkZ = bz >> 5;
                             if (blockChunkX != chunk.getX() || blockChunkZ != chunk.getZ()) {
                                 continue; // Skip blocks outside this chunk
                             }
-                            
+
+                            // Count candidate check
+                            candidateChecks++;
+
                             // Try to place coal ore
                             if (placeCoalOreInChunk(chunk, bx, by, bz)) {
                                 placed++;
@@ -242,7 +303,9 @@ public class CoalOrePlugin extends JavaPlugin {
                 }
             }
         }
-        
+        long end = System.nanoTime();
+        long ms = (end - start) / 1_000_000L;
+        LOGGER.atInfo().log("generateVeinInChunk center=(%d,%d,%d) size=%d candidates=%d placed=%d timeMs=%d", centerX, centerY, centerZ, size, candidateChecks, placed, ms);
         return placed;
     }
     
@@ -272,15 +335,10 @@ public class CoalOrePlugin extends JavaPlugin {
      */
     private boolean isReplaceableBlockId(int blockId) {
         if (blockId == stoneId) return true;
-        
-        if (replaceableBlockIds != null) {
-            for (int id : replaceableBlockIds) {
-                if (id != Integer.MIN_VALUE && id == blockId) {
-                    return true;
-                }
-            }
+        if (replaceableBlockIds != null && replaceableBlockIds.contains(blockId)) {
+            return true;
         }
-        
+
         return false;
     }
     
@@ -468,42 +526,86 @@ public class CoalOrePlugin extends JavaPlugin {
         }
         
         int placed = 0;
-        
+        long start = System.nanoTime();
+        int candidateChecks = 0;
+        int chunkLookups = 0;
+
+        // Collect candidate placements grouped by chunk index, then flush per-chunk
+        Map<Long, List<int[]>> placementsPerChunk = new HashMap<>();
+
         for (int i = 0; i < size; i++) {
             float progress = (float) i / size;
-            float angle1 = random.nextFloat() * (float) Math.PI * 2;
-            float angle2 = random.nextFloat() * (float) Math.PI * 2;
-            
-            int offsetX = (int) (Math.cos(angle1) * progress * 2);
-            int offsetY = (int) (Math.sin(angle1) * Math.cos(angle2) * progress * 2);
-            int offsetZ = (int) (Math.sin(angle2) * progress * 2);
-            
+            // Avoid trig functions during command-driven generation as well.
+            int offsetX = (int) ((random.nextDouble() * 2.0 - 1.0) * progress * 2);
+            int offsetY = (int) ((random.nextDouble() * 2.0 - 1.0) * progress * 2);
+            int offsetZ = (int) ((random.nextDouble() * 2.0 - 1.0) * progress * 2);
+
             int x = centerX + offsetX;
             int y = centerY + offsetY;
             int z = centerZ + offsetZ;
-            
+
             int clusterRadius = 1 + random.nextInt(2);
-            
+
+            double r = clusterRadius + random.nextFloat() * 0.5;
+            double r2 = r * r;
+
             for (int dx = -clusterRadius; dx <= clusterRadius; dx++) {
                 for (int dy = -clusterRadius; dy <= clusterRadius; dy++) {
                     for (int dz = -clusterRadius; dz <= clusterRadius; dz++) {
-                        double dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                        if (dist <= clusterRadius + random.nextFloat() * 0.5) {
+                        int ddx = dx*dx;
+                        int ddy = dy*dy;
+                        int ddz = dz*dz;
+                        int dist2 = ddx + ddy + ddz;
+                        if ((double) dist2 <= r2) {
                             int bx = x + dx;
                             int by = y + dy;
                             int bz = z + dz;
-                            
+
                             if (by < 1 || by > 310) continue;
-                            
-                            if (placeCoalOre(world, bx, by, bz)) {
-                                placed++;
+
+                            candidateChecks++;
+                            long chunkIndex = ChunkUtil.indexChunkFromBlock(bx, bz);
+                            List<int[]> list = placementsPerChunk.get(chunkIndex);
+                            if (list == null) {
+                                list = new ArrayList<>();
+                                placementsPerChunk.put(chunkIndex, list);
                             }
+                            list.add(new int[]{bx, by, bz});
                         }
                     }
                 }
             }
         }
-        
+
+        // Flush placements per chunk: fetch the chunk once and apply placements
+        for (Map.Entry<Long, List<int[]>> e : placementsPerChunk.entrySet()) {
+            long chunkIndex = e.getKey();
+            List<int[]> list = e.getValue();
+            WorldChunk chunk = (WorldChunk) world.getNonTickingChunk(chunkIndex);
+            chunkLookups++;
+            if (chunk == null) continue;
+
+            for (int[] coord : list) {
+                int bx = coord[0];
+                int by = coord[1];
+                int bz = coord[2];
+
+                try {
+                    int currentBlock = chunk.getBlock(bx, by, bz);
+                    if (isReplaceableBlockId(currentBlock)) {
+                        chunk.setBlock(bx, by, bz, coalOreId, coalOreType, 0, 0, 4);
+                        placed++;
+                    }
+                } catch (Exception ex) {
+                    // ignore problematic coords during flush
+                }
+            }
+        }
+
+        long end = System.nanoTime();
+        long elapsedMs = (end - start) / 1_000_000L;
+        LOGGER.atInfo().log("spawnCoalOreVein: size=%d candidates=%d chunks=%d placed=%d timeMs=%d", size, candidateChecks, chunkLookups, placed, elapsedMs);
+
         return placed;
     }
     

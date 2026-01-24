@@ -1,7 +1,7 @@
 {
     "Group": "Jordansbored",
     "Name": "CoalOre",
-    "Version": "2.0.3",
+    "Version": "2.0.5",
     "Description": "Adds coal ore world generation to all biomes. Coal ore can be used as fuel with 8x the burn time of charcoal!",
     "Authors": [
         {
